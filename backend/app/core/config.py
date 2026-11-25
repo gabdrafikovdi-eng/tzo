@@ -1,4 +1,3 @@
-from datetime import timedelta
 from functools import lru_cache
 from pathlib import Path
 
@@ -43,11 +42,12 @@ class Settings(BaseSettings):
         case_sensitive=True,
     )
 
-    TIMEDELTA_TOKEN: timedelta = timedelta(days=30)
-    NBYTES_SECRET_USER_SESSION: int = 32
-    GOOGLE_CLIENT_ID: str
-
+    JWT_SECRET_KEY: str
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     COOKIE_SECURE: bool = True
+    NBYTES_SECRET_USER_SESSION: int = 32
 
 
 @lru_cache
