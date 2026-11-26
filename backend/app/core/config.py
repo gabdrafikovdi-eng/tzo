@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     COOKIE_SECURE: bool = True
     NBYTES_SECRET_USER_SESSION: int = 32
+    TELEGRAM_BOT: str
+    TELEGRAM_INIT_DATA_EXPIRES: int = Field(
+        default=86400,
+        description="Как долго данные инициализации остаются пригодными для использования (в секундах). Пройти 0 или нет принимать инициализирующие данные любого возраста, что позволяет воспроизводить их",
+    )
 
 
 @lru_cache

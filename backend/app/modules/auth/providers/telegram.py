@@ -11,7 +11,7 @@ class TelegramProvider:
         self._bot_token = bot_token
         self._max_auth_age = max_auth_age
 
-    def authenticate(self, init_data: str):
+    def authenticate(self, init_data: str) -> UserIdentityDTO:
         result = validate_by_hash(
             init_data=init_data,
             bot_token=self._bot_token,
