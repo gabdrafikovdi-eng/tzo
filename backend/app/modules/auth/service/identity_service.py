@@ -45,6 +45,7 @@ class IdentityService:
                     id=user_identity.id,
                     user_id=user_identity.user.id,
                     provider_user_id=user_identity.provider_user_id,
+                    auth_provider=identity.provider,
                 ),
             )
 
@@ -59,6 +60,7 @@ class IdentityService:
             user=new_user,
             identity=AuthIdentityDTO(
                 id=new_identity.id,
+                user_id=new_user.id,
                 auth_provider=new_identity.auth_provider,
                 provider_user_id=new_identity.provider_user_id,
             ),
@@ -88,6 +90,7 @@ class IdentityService:
         new_auth_identity = await self._auth_repo.crate_auth_identity(
             user_id=user_id,
             auth_provider=identity.provider,
+            provider_user_id=identity.external_id,
         )
         return AuthIdentityDTO(
             id=new_auth_identity.id,
@@ -97,9 +100,7 @@ class IdentityService:
         )
 
     async def unlink_identity(
-        self,
-        user_id: UUID,
-        provider: AuthProvider,
+        self, user_id: UUID, provider: AuthProvider, provider_user_id: str
     ) -> None:
         """
         Отвязывает внешнюю идентичность.
@@ -109,5 +110,7 @@ class IdentityService:
         if count_auth <= 1:
             raise  # TODO Вернуть ошибку что осталось единственный вход
 
-        if not await self._auth_repo.delete_auth_identity(user_id=user_id):
+        if not await self._auth_repo.delete_auth_identity(
+            user_id=user_id, provider_user_id=provider_user_id
+        ):
             raise  # TODO Так же вернуть что не удалось удалось и попробовать еще раз

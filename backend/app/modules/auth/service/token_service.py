@@ -35,11 +35,14 @@ class TokenService:
         return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
     def decode_access_token(self, token: str) -> dict:
-        return jwt.decode(
+
+        payload = jwt.decode(
             jwt=token,
             key=self._settings.JWT_SECRET_KEY,
-            algorithms=self._settings.JWT_ALGORITHM,
+            algorithms=[self._settings.JWT_ALGORITHM],
             options={
                 "require": ["sub", "sid", "exp", "iat"],
             },
         )
+        if payload["type"] != "access":
+            raise  # TODO Нужно сделать ошибку позже  InvalidAccessTokenError

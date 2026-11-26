@@ -1,11 +1,13 @@
 from enum import StrEnum
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from app.core.base import Base, TimestampMixin
 from sqlalchemy import Enum, ForeignKey, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend.app.modules.user.models.user import User
+if TYPE_CHECKING:
+    from backend.app.modules.user.models.user import User
 
 
 class AuthProvider(StrEnum):

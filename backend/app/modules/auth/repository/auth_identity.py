@@ -38,8 +38,11 @@ class AuthIdentityRepo:
         await self._session.refresh()
         return new_identity
 
-    async def delete_auth_identity(self, user_id: UUID) -> bool:
-        stmt = delete(AuthIdentity).where(AuthIdentity.user_id == user_id)
+    async def delete_auth_identity(self, user_id: UUID, provider_user_id: str) -> bool:
+        stmt = delete(AuthIdentity).where(
+            AuthIdentity.user_id == user_id,
+            AuthIdentity.provider_user_id == provider_user_id,
+        )
         result = await self._session.execute(stmt)
         return result.rowcount > 0
 
@@ -50,4 +53,4 @@ class AuthIdentityRepo:
             .where(AuthIdentity.user_id == user_id)
         )
 
-        return self._session.scalar(stmt) or 0
+        return await self._session.scalar(stmt) or 0

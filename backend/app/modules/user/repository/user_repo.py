@@ -17,11 +17,18 @@ class UserRepository:
         await self._session.refresh()
         return user
 
-    async def get_user(self, user_id: UUID) -> User:
+    async def get_user(
+        self, user_id: UUID, is_active: bool | None = None
+    ) -> User | None:
         stmt = (
             select(User)
-            .where(User.id == user_id)
+            .where(
+                User.id == user_id,
+            )
             .options(selectinload(User.auth_identities))
         )
+        if is_active is not None:
+            stmt.where(User.is_active == is_active)
+
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none()
