@@ -32,7 +32,7 @@ class SessionService:
         )
 
     async def get_session_by_refresh(self, refresh_token_hash: str) -> UserSessionDTO:
-        user_session = await self._user_session_repo.get_session(
+        user_session = await self._user_session_repo.get_session_by_refresh(
             refresh_token_hash=refresh_token_hash
         )
         if user_session is None:
@@ -67,13 +67,7 @@ class SessionService:
                 raise  # TODO  Вернуть ошибку NotFound user session
 
             if current_session.refresh_token_hash != old_refresh_token_hash:
-                return UserSessionDTO(
-                    id=current_session.id,
-                    user_id=current_session.user_id,
-                    refresh_token_hash=current_session.refresh_token_hash,
-                    expires_at=current_session.expires_at,
-                    revoked_at=current_session.revoked_at,
-                )
+                raise  # TODO Вернуть ошибку REFRESH_TOKEN_CONFLICT
 
             raise  # TODO вернуть ошибку не удалось обновить ReplayDetectedError
 
@@ -85,19 +79,19 @@ class SessionService:
             revoked_at=user_session.revoked_at,
         )
 
-    async def revoke_session(self, user_session_id: UUID, revoked_at: datetime):
+    async def revoke_session(self, user_session_id: UUID, revoked_at: datetime) -> None:
         result = await self._user_session_repo.revoke_session(
             user_session_id=user_session_id, revoked_at=revoked_at
         )
         if result is None:
             raise  # TODO Выбросить ошибку что не удалось отозвать сессию
 
-    async def revoke_all_sessions(self, user_id: UUID, revoked_at: datetime):
+    async def revoke_all_sessions(self, user_id: UUID, revoked_at: datetime) -> None:
         await self._user_session_repo.revoke_all_sessions(
             user_id=user_id, revoked_at=revoked_at
         )
 
-    async def get_by_active_session(self, user_session_id: UUID, user_id: UUID):
+    async def get_by_active_session(self, user_session_id: UUID, user_id: UUID) -> None:
         user_session = await self._user_session_repo.get_active_session(
             user_session_id=user_session_id, user_id=user_id
         )

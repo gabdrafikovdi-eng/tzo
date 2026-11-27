@@ -11,7 +11,7 @@ class UserSessionRepo:
         self._session = session
 
     async def create_session(
-        self, user_id: UUID, refresh_token_hash, expires_at: datetime
+        self, user_id: UUID, refresh_token_hash: str, expires_at: datetime
     ) -> UserSession:
         user_session = UserSession(
             user_id=user_id,
@@ -37,7 +37,7 @@ class UserSessionRepo:
         user_session_id: UUID,
         new_refresh_token_hash: str,
         old_refresh_token_hash: str,
-    ) -> UserSession:
+    ) -> UserSession | None:
         stmt = (
             update(UserSession)
             .where(
