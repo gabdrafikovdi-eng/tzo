@@ -1,7 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -56,6 +56,20 @@ class Settings(BaseSettings):
         default=900,
         description="Как долго данные инициализации остаются пригодными для использования (в секундах). Рекомендуется 300–900 для Telegram Mini App",
     )
+
+    @field_validator("JWT_SECRET_KEY")
+    @classmethod
+    def validate_jwt_secret_key(cls, value: str) -> str:
+        if len(value.encode("utf-8")) < 32:
+            raise ValueError("JWT_SECRET_KEY must be at least 32 bytes")
+        return value
+
+    @field_validator("HTTPONLY")
+    @classmethod
+    def validate_httponly(cls, value: bool) -> bool:
+        if not value:
+            raise ValueError("HTTPONLY must remain enabled for refresh cookies")
+        return value
 
 
 @lru_cache

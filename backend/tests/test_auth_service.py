@@ -6,7 +6,7 @@ from unittest.mock import patch
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import update
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from backend.app.modules.auth.dto.auth_identity import AuthProvider
@@ -23,10 +23,13 @@ from backend.app.modules.auth.exceptions import (
     UnknownRefreshTokenError,
 )
 from backend.app.modules.auth.models.user_session import UserSession
+from backend.app.modules.auth.models.auth_identity import AuthIdentity
 from backend.app.modules.auth.service.auth_service import AuthService
 from backend.app.modules.auth.service.session_service import SessionService
 from backend.app.modules.auth.service.token_service import TokenService
+from backend.app.modules.auth.service.identity_service import IdentityService
 from backend.app.modules.user.dto.user import UserDTO
+from backend.app.modules.user.models.user import User
 
 
 class TestAuthServiceAuthenticateTelegram:
@@ -75,6 +78,43 @@ class TestAuthServiceAuthenticateTelegram:
             with pytest.raises(InactiveUserError):
                 await auth_service.authenticate_telegram("fake-init-data")
 
+    async def test_concurrent_identity_resolution_creates_one_user(
+        self, session: AsyncSession
+    ):
+        """The unique identity constraint resolves a first-login race safely."""
+        factory = async_sessionmaker(bind=session.bind, expire_on_commit=False)
+        identity = UserIdentityDTO(
+            provider=AuthProvider.TELEGRAM,
+            external_id=f"race-{uuid4().hex}",
+            first_name="Race",
+        )
+
+        async def resolve() -> UUID:
+            async with factory() as concurrent_session:
+                service = IdentityService(concurrent_session)
+                result = await service.resolve(identity)
+                await concurrent_session.commit()
+                return result.user.id
+
+        user_ids = await asyncio.gather(resolve(), resolve())
+        assert user_ids[0] == user_ids[1]
+
+        try:
+            async with factory() as verification_session:
+                identities = await verification_session.execute(
+                    select(AuthIdentity).where(
+                        AuthIdentity.auth_provider == AuthProvider.TELEGRAM,
+                        AuthIdentity.provider_user_id == identity.external_id,
+                    )
+                )
+                assert len(identities.scalars().all()) == 1
+        finally:
+            async with factory() as cleanup_session:
+                await cleanup_session.execute(
+                    delete(User).where(User.id == user_ids[0])
+                )
+                await cleanup_session.commit()
+
 
 class TestAuthServiceRefreshTokens:
     async def test_concurrent_rotation_only_one_succeeds(
@@ -112,10 +152,16 @@ class TestAuthServiceRefreshTokens:
                     await concurrent_session.commit()
                     return result.refresh_token
 
-        results = await asyncio.gather(rotate(), rotate())
+        try:
+            results = await asyncio.gather(rotate(), rotate())
 
-        assert sum(result == "replay" for result in results) == 1
-        assert sum(result != "replay" for result in results) == 1
+            assert sum(result == "replay" for result in results) == 1
+            assert sum(result != "replay" for result in results) == 1
+        finally:
+            # This test commits to make concurrent sessions visible; remove
+            # only its graph instead of relying on the fixture rollback.
+            await session.execute(delete(User).where(User.id == test_user_id))
+            await session.commit()
 
     async def test_successful_rotation(
         self,
@@ -216,5 +262,4 @@ class TestAuthServiceLogout:
     async def test_all_logout_no_sessions(
         self, auth_service: AuthService, test_user_id: UUID
     ):
-        with pytest.raises(SessionNotFoundError):
-            await auth_service.all_logout(test_user_id)
+        await auth_service.all_logout(test_user_id)

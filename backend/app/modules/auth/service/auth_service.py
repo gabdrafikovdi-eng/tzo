@@ -2,12 +2,14 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from init_data_py.errors import InvalidInitDataError
 
 from backend.app.core.config import get_settings
 from backend.app.modules.auth.dto.auth_result import AuthResultDTO
 from backend.app.modules.auth.dto.token_pair import TokenPairDTO
 from backend.app.modules.auth.exceptions import (
     InactiveUserError,
+    InvalidAccessTokenError,
     RefreshTokenReplayError,
     SessionExpiredError,
     SessionNotFoundError,
@@ -32,7 +34,14 @@ class AuthService:
         self._session_service = SessionService(session=session)
 
     async def authenticate_telegram(self, init_data: str) -> AuthResultDTO:
-        user_identity = self._telegram.authenticate(init_data=init_data)
+        try:
+            user_identity = self._telegram.authenticate(init_data=init_data)
+        except InvalidInitDataError as exc:
+            # Keep invalid provider data on the established application-error
+            # path; do not expose parsing or signature details to a client.
+            raise InvalidAccessTokenError(
+                message="Некорректные данные авторизации Telegram"
+            ) from exc
 
         resolved = await self._identity_service.resolve(identity=user_identity)
 
@@ -128,13 +137,15 @@ class AuthService:
         revoked = await self._session_service.revoke_session(
             user_session_id=user_session.id, revoked_at=now
         )
-        if not revoked:
+        # A second logout for an already revoked session is intentionally a
+        # successful no-op. It also makes cookie deletion safe to retry.
+        if not revoked and user_session.revoked_at is None:
             raise SessionNotFoundError()
 
     async def all_logout(self, user_id: UUID) -> None:
         now = datetime.now(UTC)
-        count = await self._session_service.revoke_all_sessions(
+        await self._session_service.revoke_all_sessions(
             user_id=user_id, revoked_at=now
         )
-        if count == 0:
-            raise SessionNotFoundError(message="Активных сессий не найдено")
+        # Logout-all is idempotent: no active sessions is already the desired
+        # final state.
