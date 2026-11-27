@@ -1,10 +1,19 @@
 from datetime import UTC, datetime
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.config import get_settings
 from backend.app.modules.auth.dto.auth_result import AuthResultDTO
 from backend.app.modules.auth.dto.token_pair import TokenPairDTO
+from backend.app.modules.auth.exceptions import (
+    InactiveUserError,
+    RefreshTokenReplayError,
+    SessionExpiredError,
+    SessionNotFoundError,
+    SessionRevokedError,
+    UnknownRefreshTokenError,
+)
 from backend.app.modules.auth.providers.telegram import TelegramProvider
 from backend.app.modules.auth.service.identity_service import IdentityService
 from backend.app.modules.auth.service.session_service import SessionService
@@ -27,6 +36,9 @@ class AuthService:
 
         resolved = await self._identity_service.resolve(identity=user_identity)
 
+        if not resolved.user.is_active:
+            raise InactiveUserError()
+
         refresh_token = self._token_service.create_refresh_token()
         refresh_token_hash = self._token_service.hash_refresh_token(refresh_token)
         user_session = await self._session_service.create_session(
@@ -41,52 +53,76 @@ class AuthService:
         )
 
     async def refresh_tokens(self, refresh_token: str) -> TokenPairDTO:
-        date_now = datetime.now(UTC)
         refresh_token_hash = self._token_service.hash_refresh_token(refresh_token)
+
+        # Проверяем replay: если токен уже был использован ранее — отзываем сессию.
+        replay_session_id = await self._session_service.check_replay(refresh_token_hash)
+        if replay_session_id is not None:
+            await self._session_service.revoke_session(
+                user_session_id=replay_session_id, revoked_at=datetime.now(UTC)
+            )
+            raise RefreshTokenReplayError()
+
         user_session = await self._session_service.get_session_by_refresh(
             refresh_token_hash=refresh_token_hash
         )
+        if user_session is None:
+            raise UnknownRefreshTokenError()
 
         if user_session.revoked_at is not None:
-            raise  # TODO выбросить ошибку что недействительный
+            raise SessionRevokedError()
 
-        if user_session.expires_at <= date_now:
-            raise  # TODO выбросить ошибку что токен истек
+        now = datetime.now(UTC)
+        if user_session.expires_at <= now:
+            raise SessionExpiredError()
 
         new_refresh_token = self._token_service.create_refresh_token()
         new_refresh_token_hash = self._token_service.hash_refresh_token(
             token=new_refresh_token
         )
-        update_refresh = await self._session_service.update_refresh_token(
+
+        updated = await self._session_service.update_refresh_token(
             user_session_id=user_session.id,
             new_refresh_token_hash=new_refresh_token_hash,
             old_refresh_token_hash=refresh_token_hash,
         )
+
+        if updated is None:
+            # Конфликт при конкурентном обновлении — строгий replay.
+            # Отзываем сессию и отказываем.
+            await self._session_service.revoke_session(
+                user_session_id=user_session.id, revoked_at=now
+            )
+            raise RefreshTokenReplayError()
+
         new_access_token = self._token_service.create_access_token(
-            user_id=update_refresh.user_id, session_id=update_refresh.id
+            user_id=updated.user_id, session_id=updated.id
         )
 
         return TokenPairDTO(
             refresh_token=new_refresh_token, access_token=new_access_token
         )
 
-    async def logout(self, refresh_token: str):
+    async def logout(self, refresh_token: str) -> None:
         now = datetime.now(UTC)
         refresh_token_hash = self._token_service.hash_refresh_token(refresh_token)
+
         user_session = await self._session_service.get_session_by_refresh(
             refresh_token_hash=refresh_token_hash
         )
+        if user_session is None:
+            raise UnknownRefreshTokenError()
 
-        await self._session_service.revoke_session(
+        revoked = await self._session_service.revoke_session(
             user_session_id=user_session.id, revoked_at=now
         )
+        if not revoked:
+            raise SessionNotFoundError()
 
-    async def all_logout(self, refresh_token: str):
+    async def all_logout(self, user_id: UUID) -> None:
         now = datetime.now(UTC)
-        refresh_token_hash = self._token_service.hash_refresh_token(refresh_token)
-        user_session = await self._session_service.get_session_by_refresh(
-            refresh_token_hash=refresh_token_hash
+        count = await self._session_service.revoke_all_sessions(
+            user_id=user_id, revoked_at=now
         )
-        await self._session_service.revoke_all_sessions(
-            user_id=user_session.user_id, revoked_at=now
-        )
+        if count == 0:
+            raise SessionNotFoundError(message="Активных сессий не найдено")

@@ -19,7 +19,7 @@ class TelegramProvider:
         )
         return UserIdentityDTO(
             provider=AuthProvider.TELEGRAM,
-            external_id=result.user.id,
+            external_id=str(result.user.id),
             first_name=result.user.first_name,
             last_name=result.user.last_name,
             username=result.user.username,

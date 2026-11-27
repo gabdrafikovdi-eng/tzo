@@ -5,6 +5,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.app.modules.auth.dto.auth_identity import AuthIdentityDTO
 from backend.app.modules.auth.dto.resolved_identity import ResolvedIdentityDTO
 from backend.app.modules.auth.dto.user_identity import UserIdentityDTO
+from backend.app.modules.auth.exceptions import (
+    IdentityAlreadyLinkedError,
+    IdentityDeleteError,
+    LastIdentityError,
+)
 from backend.app.modules.auth.models.auth_identity import AuthProvider
 from backend.app.modules.auth.repository.auth_identity import AuthIdentityRepo
 from backend.app.modules.user.dto.user import UserDTO
@@ -50,7 +55,7 @@ class IdentityService:
             )
 
         new_user = await self._user_service.create_user(name=identity.first_name)
-        new_identity = await self._auth_repo.crate_auth_identity(
+        new_identity = await self._auth_repo.create_auth_identity(
             user_id=new_user.id,
             auth_provider=identity.provider,
             provider_user_id=identity.external_id,
@@ -80,6 +85,8 @@ class IdentityService:
             provider_user_id=identity.external_id,
         )
         if auth_identity is not None:
+            if auth_identity.user_id != user_id:
+                raise IdentityAlreadyLinkedError()
             return AuthIdentityDTO(
                 id=auth_identity.id,
                 user_id=auth_identity.user_id,
@@ -87,7 +94,7 @@ class IdentityService:
                 provider_user_id=auth_identity.provider_user_id,
             )
 
-        new_auth_identity = await self._auth_repo.crate_auth_identity(
+        new_auth_identity = await self._auth_repo.create_auth_identity(
             user_id=user_id,
             auth_provider=identity.provider,
             provider_user_id=identity.external_id,
@@ -108,9 +115,11 @@ class IdentityService:
         """
         count_auth = await self._auth_repo.count_auth_identities(user_id=user_id)
         if count_auth <= 1:
-            raise  # TODO Вернуть ошибку что осталось единственный вход
+            raise LastIdentityError()
 
         if not await self._auth_repo.delete_auth_identity(
-            user_id=user_id, provider_user_id=provider_user_id
+            user_id=user_id,
+            auth_provider=provider,
+            provider_user_id=provider_user_id,
         ):
-            raise  # TODO Так же вернуть что не удалось удалось и попробовать еще раз
+            raise IdentityDeleteError(message="Не удалось удалить идентичность")

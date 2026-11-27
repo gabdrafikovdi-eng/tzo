@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Response, status
 from backend.app.core.config import Settings, get_settings
 from backend.app.modules.auth.api.dependencies import (
     get_auth_service,
+    get_current_user,
     get_refresh_token,
 )
 from backend.app.modules.auth.schemas.request import TelegramAuthRequest
@@ -78,7 +79,7 @@ async def logout(
 @auth_router.post("/logout-all", status_code=status.HTTP_204_NO_CONTENT)
 async def logout_all(
     response: Response,
-    refresh_token: Annotated[str, Depends(get_refresh_token)],
+    current_user: Annotated[dict, Depends(get_current_user)],
     _auth_service: Annotated[AuthService, Depends(get_auth_service)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> None:
@@ -89,4 +90,4 @@ async def logout_all(
         httponly=settings.HTTPONLY,
         samesite="lax",
     )
-    await _auth_service.all_logout(refresh_token=refresh_token)
+    await _auth_service.all_logout(user_id=current_user.id)

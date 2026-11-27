@@ -1,9 +1,10 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from app.modules.auth.models.user_session import UserSession
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from backend.app.modules.auth.models.user_session import UserSession
 
 
 class UserSessionRepo:
@@ -46,7 +47,9 @@ class UserSessionRepo:
                 UserSession.revoked_at.is_(None),
                 UserSession.expires_at > datetime.now(UTC),
             )
-            .values(refresh_token_hash=new_refresh_token_hash)
+            .values(
+                refresh_token_hash=new_refresh_token_hash,
+            )
         ).returning(UserSession)
 
         result = await self._session.execute(stmt)
@@ -62,7 +65,7 @@ class UserSessionRepo:
     ) -> UserSession | None:
         stmt = (
             update(UserSession)
-            .where(UserSession.id == user_session_id)
+            .where(UserSession.id == user_session_id, UserSession.revoked_at.is_(None))
             .values(revoked_at=revoked_at)
         ).returning(UserSession)
 

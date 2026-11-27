@@ -2,12 +2,19 @@ import asyncio
 from logging.config import fileConfig
 
 from alembic import context
-from app.core.config import data_base_conf
+from backend.app.core.config import data_base_conf
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from backend.app.core.base import Base
+
+# Импортируем все модели, чтобы они зарегистрировались в Base.metadata
+# и Alembic видел их при autogenerate.
+from backend.app.modules.auth.models.auth_identity import AuthIdentity  # noqa: F401
+from backend.app.modules.auth.models.refresh_token import RefreshToken  # noqa: F401
+from backend.app.modules.auth.models.user_session import UserSession  # noqa: F401
+from backend.app.modules.user.models.user import User  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

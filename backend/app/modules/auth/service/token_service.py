@@ -4,7 +4,8 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import jwt
-from app.core.config import get_settings
+from backend.app.core.config import get_settings
+from backend.app.modules.auth.exceptions import InvalidAccessTokenError
 
 
 class TokenService:
@@ -35,16 +36,22 @@ class TokenService:
         return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
     def decode_access_token(self, token: str) -> dict:
-
-        payload = jwt.decode(
-            jwt=token,
-            key=self._settings.JWT_SECRET_KEY,
-            algorithms=[self._settings.JWT_ALGORITHM],
-            options={
-                "require": ["sub", "sid", "exp", "iat"],
-            },
-        )
-        if payload["type"] != "access":
-            raise  # TODO Нужно сделать ошибку позже  InvalidAccessTokenError
+        try:
+            payload = jwt.decode(
+                jwt=token,
+                key=self._settings.JWT_SECRET_KEY,
+                algorithms=[self._settings.JWT_ALGORITHM],
+                options={
+                    "require": ["sub", "sid", "type", "exp", "iat"],
+                },
+            )
+            if payload.get("type") != "access":
+                raise InvalidAccessTokenError()
+            UUID(payload["sub"])
+            UUID(payload["sid"])
+        except InvalidAccessTokenError:
+            raise
+        except (jwt.InvalidTokenError, KeyError, TypeError, ValueError) as exc:
+            raise InvalidAccessTokenError() from exc
 
         return payload

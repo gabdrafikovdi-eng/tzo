@@ -80,6 +80,7 @@ dependencies = [
     { name = "alembic" },
     { name = "asyncpg" },
     { name = "fastapi" },
+    { name = "init-data-py" },
     { name = "pwdlib" },
     { name = "pydantic-settings" },
     { name = "pyjwt" },
@@ -92,6 +93,7 @@ requires-dist = [
     { name = "alembic", specifier = ">=1.20.1" },
     { name = "asyncpg", specifier = ">=0.32.0" },
     { name = "fastapi", specifier = ">=0.165.0" },
+    { name = "init-data-py", specifier = ">=1.0.0" },
     { name = "pwdlib", specifier = ">=0.4.2" },
     { name = "pydantic-settings", specifier = ">=2.16.3" },
     { name = "pyjwt", specifier = ">=2.15.1" },
@@ -170,6 +172,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f5/08/8eea9d4b8302028f3abb2c0813953f7aec26d33b7a8960ed760e65ff29fa/idna-3.20.tar.gz", hash = "sha256:a7db850025b95ded1eae8a46181a1a6c56c92c96f0e2b005d9ff8dc0210cab44", size = 216463, upload-time = "2026-09-17T14:11:04.752Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/58/a2/bb081bab032533a855d44de1d56f8e8426114ff1ba5d1f07a438a0a654f8/idna-3.20-py3-none-any.whl", hash = "sha256:ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c", size = 69583, upload-time = "2026-09-17T14:11:03.168Z" },
+]
+
+[[package]]
+name = "init-data-py"
+version = "1.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/5d/c3/384fecc15902123c99cc97bac27d4ae07c66bf36f00111bbdf327290b8d9/init_data_py-1.0.1.tar.gz", hash = "sha256:68fbec6ad9a45ab8d9e551528856ec53c09a3d8ad74b9bdb33bcbf8edac5d858", size = 70277, upload-time = "2026-10-18T19:24:42.842Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/52/d2/02569c9daf8997e7079caefc27e315ec7aae721cb7779bcb203f6a867da8/init_data_py-1.0.1-py3-none-any.whl", hash = "sha256:fb916f27c4b89316c868bad6a3c60c60d582ae097d1778e7acd6af69668068be", size = 20163, upload-time = "2026-10-18T19:24:41.865Z" },
 ]
 
 [[package]]

@@ -1,6 +1,8 @@
 from uuid import UUID
+from typing import Optional
 
 from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -13,7 +15,7 @@ class AuthIdentityRepo:
 
     async def get_auth_identity_by_user_id(
         self, auth_provider: AuthProvider, provider_user_id: str
-    ) -> AuthIdentity:
+    ) -> Optional[AuthIdentity]:
         stmt = (
             select(AuthIdentity)
             .where(
@@ -26,7 +28,7 @@ class AuthIdentityRepo:
 
         return result.scalar_one_or_none()
 
-    async def crate_auth_identity(
+    async def create_auth_identity(
         self, user_id: UUID, auth_provider: AuthProvider, provider_user_id: str
     ) -> AuthIdentity:
         new_identity = AuthIdentity(
@@ -35,12 +37,28 @@ class AuthIdentityRepo:
             provider_user_id=provider_user_id,
         )
         self._session.add(new_identity)
-        await self._session.flush()
-        return new_identity
+        try:
+            async with self._session.begin_nested():
+                await self._session.flush()
+            return new_identity
+        except IntegrityError:
+            # Откат savepoint уже удаляет неуспешный pending-объект из session.
+            existing = await self.get_auth_identity_by_user_id(
+                auth_provider=auth_provider, provider_user_id=provider_user_id
+            )
+            if existing is not None:
+                return existing
+            raise
 
-    async def delete_auth_identity(self, user_id: UUID, provider_user_id: str) -> bool:
+    async def delete_auth_identity(
+        self,
+        user_id: UUID,
+        auth_provider: AuthProvider,
+        provider_user_id: str,
+    ) -> bool:
         stmt = delete(AuthIdentity).where(
             AuthIdentity.user_id == user_id,
+            AuthIdentity.auth_provider == auth_provider,
             AuthIdentity.provider_user_id == provider_user_id,
         )
         result = await self._session.execute(stmt)

@@ -1,7 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -49,10 +49,12 @@ class Settings(BaseSettings):
     COOKIE_SECURE: bool = True
     HTTPONLY: bool = True
     NBYTES_SECRET_USER_SESSION: int = 32
-    TELEGRAM_BOT: str
+    TELEGRAM_BOT: str = Field(
+        validation_alias=AliasChoices("TELEGRAM_BOT", "TELEGRAM_TOKEN")
+    )
     TELEGRAM_INIT_DATA_EXPIRES: int = Field(
-        default=86400,
-        description="Как долго данные инициализации остаются пригодными для использования (в секундах). Пройти 0 или нет принимать инициализирующие данные любого возраста, что позволяет воспроизводить их",
+        default=900,
+        description="Как долго данные инициализации остаются пригодными для использования (в секундах). Рекомендуется 300–900 для Telegram Mini App",
     )
 
 
