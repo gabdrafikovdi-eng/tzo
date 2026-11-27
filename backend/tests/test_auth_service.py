@@ -1,11 +1,13 @@
 """Интеграционные тесты AuthService."""
 
 from datetime import UTC, datetime, timedelta
+import asyncio
 from unittest.mock import patch
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import update
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from backend.app.modules.auth.dto.auth_identity import AuthProvider
 from backend.app.modules.auth.dto.auth_result import AuthResultDTO
@@ -75,6 +77,46 @@ class TestAuthServiceAuthenticateTelegram:
 
 
 class TestAuthServiceRefreshTokens:
+    async def test_concurrent_rotation_only_one_succeeds(
+        self,
+        auth_service: AuthService,
+        session: AsyncSession,
+        session_service: SessionService,
+        token_service: TokenService,
+        test_user_id: UUID,
+    ):
+        concurrent_old_hash = f"concurrent-old-{uuid4().hex}"
+        current = await session_service.create_session(
+            user_id=test_user_id, refresh_token_hash=concurrent_old_hash
+        )
+        refresh_token = token_service.create_refresh_token()
+        await session_service.update_refresh_token(
+            current.id,
+            token_service.hash_refresh_token(refresh_token),
+            concurrent_old_hash,
+        )
+        await session.commit()
+
+        factory = async_sessionmaker(bind=session.bind, expire_on_commit=False)
+
+        async def rotate() -> str:
+            async with factory() as concurrent_session:
+                await concurrent_session.begin()
+                service = AuthService(session=concurrent_session)
+                try:
+                    result = await service.refresh_tokens(refresh_token)
+                except RefreshTokenReplayError:
+                    await concurrent_session.commit()
+                    return "replay"
+                else:
+                    await concurrent_session.commit()
+                    return result.refresh_token
+
+        results = await asyncio.gather(rotate(), rotate())
+
+        assert sum(result == "replay" for result in results) == 1
+        assert sum(result != "replay" for result in results) == 1
+
     async def test_successful_rotation(
         self,
         auth_service: AuthService,

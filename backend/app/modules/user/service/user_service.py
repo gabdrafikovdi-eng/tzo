@@ -15,6 +15,9 @@ class UserService:
         user = await self._user_repo.create_user(name=name)
         return UserDTO(id=user.id, name=user.name, is_active=user.is_active)
 
+    async def delete_user(self, user_id: UUID) -> bool:
+        return await self._user_repo.delete_user(user_id=user_id)
+
     async def get_active_user(self, user_id: UUID) -> UserDTO:
         user = await self._user_repo.get_user(user_id=user_id, is_active=True)
         if user is None:

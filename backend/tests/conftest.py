@@ -1,4 +1,5 @@
 import asyncio
+import os
 from datetime import UTC, datetime
 from typing import AsyncGenerator
 from uuid import UUID, uuid4
@@ -21,7 +22,13 @@ from backend.app.modules.auth.service.token_service import TokenService
 from backend.app.modules.user.repository.user_repo import UserRepository
 from backend.app.modules.user.service.user_service import UserService
 
-test_engine = create_async_engine(data_base_conf.DATABASE_URL, poolclass=NullPool)
+test_database_url = os.getenv("TEST_DATABASE_URL")
+if test_database_url is None:
+    test_database_url = data_base_conf.DATABASE_URL.rsplit("/", 1)[0] + "/" + (
+        data_base_conf.POSTGRES_DB + "-test"
+    )
+
+test_engine = create_async_engine(test_database_url, poolclass=NullPool)
 test_session_factory = async_sessionmaker(
     bind=test_engine, autoflush=False, expire_on_commit=False
 )

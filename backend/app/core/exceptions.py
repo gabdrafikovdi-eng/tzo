@@ -15,4 +15,5 @@ class AppException(Exception):
         self.status_code = status_code
         self.error_code = error_code
         self.details = details or None
+        self.commit_on_error = False
         super().__init__(message)

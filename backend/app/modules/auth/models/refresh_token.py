@@ -23,6 +23,7 @@ class RefreshToken(Base, TimestampMixin):
     )
     token_hash: Mapped[str] = mapped_column(
         String(64),
+        unique=True,
         nullable=False,
     )
     used_at: Mapped[datetime | None] = mapped_column(

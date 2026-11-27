@@ -49,7 +49,10 @@ class AuthService:
         )
 
         return AuthResultDTO(
-            user=resolved.user, access_token=access_token, refresh_token=refresh_token
+            user=resolved.user,
+            access_token=access_token,
+            refresh_token=refresh_token,
+            refresh_expires_at=user_session.expires_at,
         )
 
     async def refresh_tokens(self, refresh_token: str) -> TokenPairDTO:
@@ -88,8 +91,15 @@ class AuthService:
         )
 
         if updated is None:
-            # Конфликт при конкурентном обновлении — строгий replay.
-            # Отзываем сессию и отказываем.
+            current_session = await self._session_service.get_by_id(user_session.id)
+            if current_session is None:
+                raise SessionNotFoundError()
+            if current_session.revoked_at is not None:
+                raise SessionRevokedError()
+            if current_session.expires_at <= now:
+                raise SessionExpiredError()
+
+            # Активная сессия с уже изменённым hash означает конкурентный replay.
             await self._session_service.revoke_session(
                 user_session_id=user_session.id, revoked_at=now
             )
@@ -100,7 +110,9 @@ class AuthService:
         )
 
         return TokenPairDTO(
-            refresh_token=new_refresh_token, access_token=new_access_token
+            refresh_token=new_refresh_token,
+            access_token=new_access_token,
+            refresh_expires_at=updated.expires_at,
         )
 
     async def logout(self, refresh_token: str) -> None:

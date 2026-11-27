@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Response, status
@@ -11,6 +12,7 @@ from backend.app.modules.auth.api.dependencies import (
 from backend.app.modules.auth.schemas.request import TelegramAuthRequest
 from backend.app.modules.auth.schemas.response import AuthResponse
 from backend.app.modules.auth.service.auth_service import AuthService
+from backend.app.modules.user.schemas.response import UserResponse
 
 auth_router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -32,7 +34,7 @@ async def authenticate_telegram(
         secure=settings.COOKIE_SECURE,
         samesite="lax",
         path="/auth",
-        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        max_age=max(0, int((result.refresh_expires_at - datetime.now(UTC)).total_seconds())),
     )
     return AuthResponse(access_token=result.access_token, token_type="Bearer")
 
@@ -54,7 +56,7 @@ async def refresh_tokens(
         secure=settings.COOKIE_SECURE,
         samesite="lax",
         path="/auth",
-        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        max_age=max(0, int((result.refresh_expires_at - datetime.now(UTC)).total_seconds())),
     )
     return AuthResponse(access_token=result.access_token, token_type="Bearer")
 
@@ -79,7 +81,7 @@ async def logout(
 @auth_router.post("/logout-all", status_code=status.HTTP_204_NO_CONTENT)
 async def logout_all(
     response: Response,
-    current_user: Annotated[dict, Depends(get_current_user)],
+    current_user: Annotated[UserResponse, Depends(get_current_user)],
     _auth_service: Annotated[AuthService, Depends(get_auth_service)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> None:

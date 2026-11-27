@@ -39,11 +39,26 @@ class RefreshTokenRepo:
             .where(
                 RefreshToken.token_hash == token_hash,
                 RefreshToken.used_at.is_(None),
+                RefreshToken.revoked_at.is_(None),
             )
             .values(used_at=datetime.now(UTC))
         ).returning(RefreshToken)
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def mark_revoked_by_session(
+        self, session_id: UUID, revoked_at: datetime
+    ) -> int:
+        stmt = (
+            update(RefreshToken)
+            .where(
+                RefreshToken.session_id == session_id,
+                RefreshToken.revoked_at.is_(None),
+            )
+            .values(revoked_at=revoked_at)
+        )
+        result = await self._session.execute(stmt)
+        return result.rowcount
 
     async def mark_revoked(
         self, token_hash: str

@@ -36,9 +36,9 @@ class AuthIdentityRepo:
             auth_provider=auth_provider,
             provider_user_id=provider_user_id,
         )
-        self._session.add(new_identity)
         try:
             async with self._session.begin_nested():
+                self._session.add(new_identity)
                 await self._session.flush()
             return new_identity
         except IntegrityError:

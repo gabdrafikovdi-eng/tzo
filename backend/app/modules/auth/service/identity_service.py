@@ -61,6 +61,21 @@ class IdentityService:
             provider_user_id=identity.external_id,
         )
 
+        if new_identity.user_id != new_user.id:
+            await self._user_service.delete_user(user_id=new_user.id)
+            existing_user = await self._user_service.get_active_user(
+                user_id=new_identity.user_id
+            )
+            return ResolvedIdentityDTO(
+                user=existing_user,
+                identity=AuthIdentityDTO(
+                    id=new_identity.id,
+                    user_id=new_identity.user_id,
+                    auth_provider=new_identity.auth_provider,
+                    provider_user_id=new_identity.provider_user_id,
+                ),
+            )
+
         return ResolvedIdentityDTO(
             user=new_user,
             identity=AuthIdentityDTO(

@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.config import get_settings
 from backend.app.modules.auth.dto.user_session import UserSessionDTO
+from backend.app.modules.auth.exceptions import RefreshTokenHistoryError
 from backend.app.modules.auth.repository.refresh_token import RefreshTokenRepo
 from backend.app.modules.auth.repository.user_session import UserSessionRepo
 
@@ -53,6 +54,20 @@ class SessionService:
             revoked_at=user_session.revoked_at,
         )
 
+    async def get_by_id(self, user_session_id: UUID) -> UserSessionDTO | None:
+        user_session = await self._user_session_repo.get_by_id(
+            user_session_id=user_session_id
+        )
+        if user_session is None:
+            return None
+        return UserSessionDTO(
+            id=user_session.id,
+            user_id=user_session.user_id,
+            refresh_token_hash=user_session.refresh_token_hash,
+            expires_at=user_session.expires_at,
+            revoked_at=user_session.revoked_at,
+        )
+
     async def check_replay(self, token_hash: str) -> UUID | None:
         """Возвращает session_id использованного токена или None."""
         token = await self._refresh_token_repo.get_by_hash(token_hash)
@@ -80,7 +95,9 @@ class SessionService:
 
         # Обновление прошло успешно — фиксируем в истории токенов:
         # старый токен помечаем использованным, создаём запись для нового.
-        await self._refresh_token_repo.mark_used(old_refresh_token_hash)
+        marked = await self._refresh_token_repo.mark_used(old_refresh_token_hash)
+        if marked is None:
+            raise RefreshTokenHistoryError()
         await self._refresh_token_repo.create(
             session_id=user_session_id,
             token_hash=new_refresh_token_hash,
@@ -100,7 +117,12 @@ class SessionService:
         result = await self._user_session_repo.revoke_session(
             user_session_id=user_session_id, revoked_at=revoked_at
         )
-        return result is not None
+        if result is None:
+            return False
+        await self._refresh_token_repo.mark_revoked_by_session(
+            session_id=user_session_id, revoked_at=revoked_at
+        )
+        return True
 
     async def revoke_all_sessions(
         self, user_id: UUID, revoked_at: datetime
@@ -108,6 +130,10 @@ class SessionService:
         result = await self._user_session_repo.revoke_all_sessions(
             user_id=user_id, revoked_at=revoked_at
         )
+        for session in result:
+            await self._refresh_token_repo.mark_revoked_by_session(
+                session_id=session.id, revoked_at=revoked_at
+            )
         return len(result)
 
     async def get_by_active_session(

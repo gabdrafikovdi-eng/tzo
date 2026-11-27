@@ -39,6 +39,7 @@ class RefreshTokenReplayError(AppException):
             status_code=status.HTTP_401_UNAUTHORIZED,
             error_code="REFRESH_TOKEN_REPLAY",
         )
+        self.commit_on_error = True
 
 
 class InvalidRefreshTokenError(AppException):
@@ -60,6 +61,15 @@ class UnknownRefreshTokenError(AppException):
             message=message,
             status_code=status.HTTP_401_UNAUTHORIZED,
             error_code="UNKNOWN_REFRESH_TOKEN",
+        )
+
+
+class RefreshTokenHistoryError(AppException):
+    def __init__(self, message: str = "История refresh-токенов повреждена"):
+        super().__init__(
+            message=message,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error_code="REFRESH_TOKEN_HISTORY_ERROR",
         )
 
 
