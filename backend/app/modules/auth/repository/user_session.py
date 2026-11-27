@@ -19,7 +19,7 @@ class UserSessionRepo:
             expires_at=expires_at,
         )
         self._session.add(user_session)
-        await self._session.refresh()
+        await self._session.flush()
         return user_session
 
     async def get_session_by_refresh(
@@ -43,6 +43,8 @@ class UserSessionRepo:
             .where(
                 UserSession.id == user_session_id,
                 UserSession.refresh_token_hash == old_refresh_token_hash,
+                UserSession.revoked_at.is_(None),
+                UserSession.expires_at > datetime.now(UTC),
             )
             .values(refresh_token_hash=new_refresh_token_hash)
         ).returning(UserSession)

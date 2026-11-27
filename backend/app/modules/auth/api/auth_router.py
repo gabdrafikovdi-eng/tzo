@@ -31,7 +31,7 @@ async def authenticate_telegram(
         secure=settings.COOKIE_SECURE,
         samesite="lax",
         path="/auth",
-        max_age=30 * 24 * 60 * 60,
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     )
     return AuthResponse(access_token=result.access_token, token_type="Bearer")
 

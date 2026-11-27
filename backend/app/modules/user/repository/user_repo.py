@@ -14,7 +14,7 @@ class UserRepository:
     async def create_user(self, name: str) -> User:
         user = User(name=name)
         self._session.add(user)
-        await self._session.refresh()
+        await self._session.flush()
         return user
 
     async def get_user(

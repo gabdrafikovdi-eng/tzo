@@ -35,7 +35,7 @@ class AuthIdentityRepo:
             provider_user_id=provider_user_id,
         )
         self._session.add(new_identity)
-        await self._session.refresh()
+        await self._session.flush()
         return new_identity
 
     async def delete_auth_identity(self, user_id: UUID, provider_user_id: str) -> bool:
