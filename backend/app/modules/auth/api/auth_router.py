@@ -7,6 +7,7 @@ from backend.app.modules.auth.api.dependencies import (
     get_auth_service,
     get_refresh_token,
 )
+from backend.app.modules.auth.schemas.request import TelegramAuthRequest
 from backend.app.modules.auth.schemas.response import AuthResponse
 from backend.app.modules.auth.service.auth_service import AuthService
 
@@ -17,19 +18,19 @@ auth_router = APIRouter(prefix="/auth", tags=["Auth"])
     "/telegram", response_model=AuthResponse, status_code=status.HTTP_200_OK
 )
 async def authenticate_telegram(
-    init_data: str,
+    data: TelegramAuthRequest,
     response: Response,
     _auth_service: Annotated[AuthService, Depends(get_auth_service)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> AuthResponse:
-    result = await _auth_service.authenticate_telegram(init_data=init_data)
+    result = await _auth_service.authenticate_telegram(init_data=data.init_data)
     response.set_cookie(
         key="refresh_token",
         value=result.refresh_token,
-        httponly="True",
+        httponly=settings.HTTPONLY,
         secure=settings.COOKIE_SECURE,
         samesite="lax",
-        path="/",
+        path="/auth",
         max_age=30 * 24 * 60 * 60,
     )
     return AuthResponse(access_token=result.access_token, token_type="Bearer")
@@ -44,30 +45,48 @@ async def refresh_tokens(
     _auth_service: Annotated[AuthService, Depends(get_auth_service)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> AuthResponse:
-    result = await _auth_service.refresh_tokens(refresh_token=refresh_tokens)
+    result = await _auth_service.refresh_tokens(refresh_token=refresh_token)
     response.set_cookie(
         key="refresh_token",
         value=result.refresh_token,
-        httponly="True",
+        httponly=settings.HTTPONLY,
         secure=settings.COOKIE_SECURE,
         samesite="lax",
-        path="/",
-        max_age=30 * 24 * 60 * 60,
+        path="/auth",
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     )
     return AuthResponse(access_token=result.access_token, token_type="Bearer")
 
 
 @auth_router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
+    response: Response,
     refresh_token: Annotated[str, Depends(get_refresh_token)],
     _auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> None:
-    await _auth_service.logout(refresh_token=refresh_tokens)
+    response.delete_cookie(
+        key="refresh_token",
+        path="/auth",
+        secure=settings.COOKIE_SECURE,
+        httponly=settings.HTTPONLY,
+        samesite="lax",
+    )
+    await _auth_service.logout(refresh_token=refresh_token)
 
 
-@auth_router.post("/logout-all", status_code=status.HTTP_200_OK)
+@auth_router.post("/logout-all", status_code=status.HTTP_204_NO_CONTENT)
 async def logout_all(
+    response: Response,
     refresh_token: Annotated[str, Depends(get_refresh_token)],
     _auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> None:
-    await _auth_service.all_logout(refresh_token=refresh_tokens)
+    response.delete_cookie(
+        key="refresh_token",
+        path="/auth",
+        secure=settings.COOKIE_SECURE,
+        httponly=settings.HTTPONLY,
+        samesite="lax",
+    )
+    await _auth_service.all_logout(refresh_token=refresh_token)

@@ -50,7 +50,7 @@ class AuthService:
         if user_session.revoked_at is not None:
             raise  # TODO выбросить ошибку что недействительный
 
-        if user_session.expires_at > date_now:
+        if user_session.expires_at <= date_now:
             raise  # TODO выбросить ошибку что токен истек
 
         new_refresh_token = self._token_service.create_refresh_token()
@@ -67,7 +67,7 @@ class AuthService:
         )
 
         return TokenPairDTO(
-            refresh_token=new_refresh_token_hash, access_token=new_access_token
+            refresh_token=new_refresh_token, access_token=new_access_token
         )
 
     async def logout(self, refresh_token: str):
@@ -78,7 +78,7 @@ class AuthService:
         )
 
         await self._session_service.revoke_session(
-            user_session_id=user_session, revoked_at=now
+            user_session_id=user_session.id, revoked_at=now
         )
 
     async def all_logout(self, refresh_token: str):

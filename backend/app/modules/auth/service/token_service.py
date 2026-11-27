@@ -46,3 +46,5 @@ class TokenService:
         )
         if payload["type"] != "access":
             raise  # TODO Нужно сделать ошибку позже  InvalidAccessTokenError
+
+        return payload

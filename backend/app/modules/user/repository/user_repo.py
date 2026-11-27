@@ -28,7 +28,7 @@ class UserRepository:
             .options(selectinload(User.auth_identities))
         )
         if is_active is not None:
-            stmt.where(User.is_active == is_active)
+            stmt = stmt.where(User.is_active == is_active)
 
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none()

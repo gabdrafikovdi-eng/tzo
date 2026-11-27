@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     COOKIE_SECURE: bool = True
+    HTTPONLY: bool = True
     NBYTES_SECRET_USER_SESSION: int = 32
     TELEGRAM_BOT: str
     TELEGRAM_INIT_DATA_EXPIRES: int = Field(

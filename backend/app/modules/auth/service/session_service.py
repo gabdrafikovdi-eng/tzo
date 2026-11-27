@@ -66,10 +66,11 @@ class SessionService:
             if current_session is None:
                 raise  # TODO  Вернуть ошибку NotFound user session
 
-            if current_session != old_refresh_token_hash:
+            if current_session.refresh_token_hash != old_refresh_token_hash:
                 return UserSessionDTO(
                     id=current_session.id,
                     user_id=current_session.user_id,
+                    refresh_token_hash=current_session.refresh_token_hash,
                     expires_at=current_session.expires_at,
                     revoked_at=current_session.revoked_at,
                 )
@@ -79,6 +80,7 @@ class SessionService:
         return UserSessionDTO(
             id=user_session.id,
             user_id=user_session.user_id,
+            refresh_token_hash=user_session.refresh_token_hash,
             expires_at=user_session.expires_at,
             revoked_at=user_session.revoked_at,
         )
@@ -106,6 +108,7 @@ class SessionService:
         return UserSessionDTO(
             id=user_session.id,
             user_id=user_session.user_id,
+            refresh_token_hash=user_session.refresh_token_hash,
             expires_at=user_session.expires_at,
             revoked_at=user_session.revoked_at,
         )

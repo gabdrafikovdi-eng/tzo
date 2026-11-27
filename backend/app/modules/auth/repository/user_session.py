@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from app.modules.auth.models.user_session import UserSession
@@ -82,7 +82,10 @@ class UserSessionRepo:
         self, user_session_id: UUID, user_id: UUID
     ) -> UserSession | None:
         stmt = select(UserSession).where(
-            UserSession.id == user_session_id, UserSession.user_id == user_id
+            UserSession.id == user_session_id,
+            UserSession.user_id == user_id,
+            UserSession.revoked_at.is_(None),
+            UserSession.expires_at > datetime.now(UTC),
         )
         result = await self._session.execute(stmt)
 
